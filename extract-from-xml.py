@@ -6,6 +6,7 @@ content in one file per article, named after the date and an identifier of the
 article.
 """
 
+import csv
 import os
 import re
 
@@ -38,6 +39,16 @@ def extract_tag_attr_value(tagname, attrname, content):
         if match2:
             value = match2.group(1)
     return value
+
+
+def remove_tag_inner_content(tagname, content):
+    """Helper function to remove all the tags from a content.
+
+    Returns the changed content.
+    """
+    replaced = re.sub(
+        "<" + tagname + r"(\s+[^>]*)?>(.*)</" + tagname + ">", '', content)
+    return replaced
 
 
 def strip_all_tags(content):
@@ -80,16 +91,22 @@ for index, article in enumerate(articles):
     type_ = extract_tag_attr_value('div3', 'type', article)
     n = extract_tag_attr_value('div3', 'n', article)
     key = "{:03d}-{}-{:02d}".format(index, type_, int(n))
-    stripped = strip_all_tags(article)
-    stripped_and_keyed_articles[key] = stripped
 
-# Write the information (contents) to one file per article.
-# The filename is constructed from a prefix (dispatch_), the date of the
-# newspaper and the article key.
-for key in sorted(stripped_and_keyed_articles.keys()):
-    print(key)
-    filename = "dispatch_" + date + "_" + key + ".txt"
-    with open(filename, "w") as output:
-        output.write(stripped_and_keyed_articles[key])
+    header = strip_all_tags(extract_tag_inner_content('head', article))
+    stripped = strip_all_tags(remove_tag_inner_content('head', article))
+    # save the information in a basic data structure (tuple)
+    stripped_and_keyed_articles[key] = (type_, header, stripped)
+
+# Write the information (contents) to a TSV file with one article per item.
+filename = "dispatch_" + date + ".tsv"
+with open(filename, "w") as output:
+    print(filename + " : ", end="")
+    csvwriter = csv.writer(output, delimiter="\t",
+                           quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    csvwriter.writerow(["date", "type", "header", "content"])
+    for key in sorted(stripped_and_keyed_articles.keys()):
+        print(".", end="", flush=True)
+        csvwriter.writerow([date] + list(stripped_and_keyed_articles[key]))
+    print("\n")
 
 print("\nDone! Bye.\n")
