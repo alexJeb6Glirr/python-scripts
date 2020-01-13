@@ -26,19 +26,25 @@ def extract_tag_inner_content(tagname, content):
     return ""
 
 
-def extract_tag_attr_value(tagname, attrname, content):
+def extract_tag_attr_value(tagname, attrname, content, all=False):
     """Helper function to get the value of a tags attribute.
 
-    It only considers the first found attribute of the first found tag.
+    By default, it only considers the first found attribute of the first
+    found tag. You can get all the first values from all the tags by setting
+    `all=True`.
     """
-    match = re.search("<" + tagname + r"(\s+[^>]*)>", content)
-    value = None
-    if match:
-        all_attrs = match.group(1)
-        match2 = re.search(r"\s+" + attrname + "=\"([^\"]*)\"", all_attrs)
+    matches = re.findall("<" + tagname + r"(\s+[^>]*)>", content)
+    values = []
+    for match in matches:
+        match2 = re.search(r"\s+" + attrname + "=\"([^\"]*)\"", match)
         if match2:
-            value = match2.group(1)
-    return value
+            values.append(match2.group(1))
+    if all:
+        return values
+    elif len(values) >= 1:
+        return values[0]
+    else:
+        return ''  # default
 
 
 def remove_tag_inner_content(tagname, content):
@@ -57,6 +63,20 @@ def strip_all_tags(content):
     The inner text is preserved.
     """
     return re.sub(r"<[^\>]*>", "", content)
+
+
+def add_to_places_frequency(current, occurences):
+    """Collect frequency of place name occurrences.
+
+    The occurrences are identfied by tgn keys.
+    """
+    for key in occurences:
+        # init with 1
+        if key not in current:
+            current[key] = 1
+        else:
+            current[key] += 1
+    return current
 
 
 # Read the files content into a variable
@@ -87,6 +107,7 @@ date = extract_tag_attr_value('date', 'value', title_page)
 # Technically the index would be unique enough, but difficult to filter without
 # the type information (this key will be used to constuct the filenames).
 stripped_and_keyed_articles = {}
+places_frequency = {}
 for index, article in enumerate(articles):
     type_ = extract_tag_attr_value('div3', 'type', article)
     n = extract_tag_attr_value('div3', 'n', article)
@@ -96,6 +117,13 @@ for index, article in enumerate(articles):
     stripped = strip_all_tags(remove_tag_inner_content('head', article))
     # save the information in a basic data structure (tuple)
     stripped_and_keyed_articles[key] = (type_, header, stripped)
+
+    rawPlaceKeys = extract_tag_attr_value(
+        'placeName', 'key', article, all=True)
+    # key might be "possibilities=x" as well or multiple keys joined by ";"
+    placeKeys = [key for key in rawPlaceKeys if key.startswith('tgn')]
+    # TODO: deal with ";"
+    places_frequency = add_to_places_frequency(places_frequency, placeKeys)
 
 # Write the information (contents) to a TSV file with one article per item.
 filename = "dispatch_" + date + ".tsv"
@@ -107,6 +135,17 @@ with open(filename, "w") as output:
     for key in sorted(stripped_and_keyed_articles.keys()):
         print(".", end="", flush=True)
         csvwriter.writerow([date] + list(stripped_and_keyed_articles[key]))
+    print("\n")
+
+filename = "dispatch_" + date + "_frequency.csv"
+with open(filename, "w") as output:
+    print(filename + " : ", end="")
+    csvwriter = csv.writer(output, delimiter=",",
+                           quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    csvwriter.writerow(["key", "frequency"])
+    for key in sorted(places_frequency.keys()):
+        print(".", end="", flush=True)
+        csvwriter.writerow([key, places_frequency[key]])
     print("\n")
 
 print("\nDone! Bye.\n")
