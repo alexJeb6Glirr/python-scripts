@@ -121,7 +121,12 @@ for index, article in enumerate(articles):
     rawPlaceKeys = extract_tag_attr_value(
         'placeName', 'key', article, all=True)
     # key might be "possibilities=x" as well or multiple keys joined by ";"
-    placeKeys = [key for key in rawPlaceKeys if key.startswith('tgn')]
+    placeKeys = []
+    for key in rawPlaceKeys:
+        if key.startswith('tgn'):
+            # split at ;
+            # remove leading tgn,
+            placeKeys += [k[4:] for k in key.split(";")]
     # TODO: deal with ";"
     places_frequency = add_to_places_frequency(places_frequency, placeKeys)
 
