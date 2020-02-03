@@ -9,6 +9,7 @@ article.
 import csv
 import os
 import re
+import sys
 
 
 def extract_tag_inner_content(tagname, content):
@@ -79,9 +80,23 @@ def add_to_places_frequency(current, occurences):
     return current
 
 
+# Read the filename from the command line
+# Exit with an error, if no filename is given
+filename = None
+if len(sys.argv) == 2:
+    filename = sys.argv[1]
+else:
+    print("Error: You need to provide exactly 1 argument: the filename to read.")
+    exit(1)
+
+# Check if the file exists
+if not os.path.isfile(filename):
+    print("Error: The file '{}' does not exist or is not a plain file.".format(filename))
+    exit(2)
+
 # Read the files content into a variable
 content = None
-with open('test.xml', 'r') as testfile:
+with open(filename, 'r') as testfile:
     content = testfile.read()
 
 # Split the read content at each <div3> tag.
