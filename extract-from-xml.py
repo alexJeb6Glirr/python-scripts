@@ -123,6 +123,7 @@ date = extract_tag_attr_value('date', 'value', title_page)
 # the type information (this key will be used to constuct the filenames).
 stripped_and_keyed_articles = {}
 places_frequency = {}
+places_names = {}
 for index, article in enumerate(articles):
     type_ = extract_tag_attr_value('div3', 'type', article)
     n = extract_tag_attr_value('div3', 'n', article)
@@ -134,17 +135,25 @@ for index, article in enumerate(articles):
     # save the information in a basic data structure (tuple)
     stripped_and_keyed_articles[key] = (type_, header, stripped)
 
-    rawPlaceKeys = extract_tag_attr_value(
+    raw_place_keys = extract_tag_attr_value(
         'placeName', 'key', article, all=True)
+    raw_place_names = extract_tag_attr_value(
+        'placeName', 'reg', article, all=True)
+    # assuming every placeName has 1 key and 1 reg attribute
+    raw_places = list(zip(raw_place_keys, raw_place_names))
     # key might be "possibilities=x" as well or multiple keys joined by ";"
-    placeKeys = []
-    for key in rawPlaceKeys:
+    place_keys = []
+    for key, name in raw_places:
+        keys = []
         if key.startswith('tgn'):
             # split at ;
             # remove leading tgn,
-            placeKeys += [k[4:] for k in key.split(";")]
-    # TODO: deal with ";"
-    places_frequency = add_to_places_frequency(places_frequency, placeKeys)
+            keys = [k[4:] for k in key.split(";")]
+            place_keys += keys
+        for k in keys:
+            places_names[k] = name
+
+    places_frequency = add_to_places_frequency(places_frequency, place_keys)
 
 # Write the information (contents) to a TSV file with one article per item.
 filename = "dispatch_" + date + ".tsv"
@@ -163,10 +172,10 @@ with open(filename, "w") as output:
     print(filename + " : ", end="")
     csvwriter = csv.writer(output, delimiter=",",
                            quotechar='"', quoting=csv.QUOTE_MINIMAL)
-    csvwriter.writerow(["key", "frequency"])
+    csvwriter.writerow(["key", "frequency", "name"])
     for key in sorted(places_frequency.keys()):
         print(".", end="", flush=True)
-        csvwriter.writerow([key, places_frequency[key]])
+        csvwriter.writerow([key, places_frequency[key], places_names[key]])
     print("\n")
 
 print("\nDone! Bye.\n")
