@@ -126,7 +126,8 @@ places_frequency = {}
 for index, article in enumerate(articles):
     type_ = extract_tag_attr_value('div3', 'type', article)
     n = extract_tag_attr_value('div3', 'n', article)
-    key = "{:03d}-{}-{:02d}".format(index, type_, int(n))
+    n = int(n) if n else 0
+    key = "{:03d}-{}-{:02d}".format(index, type_, n)
 
     header = strip_all_tags(extract_tag_inner_content('head', article))
     stripped = strip_all_tags(remove_tag_inner_content('head', article))
