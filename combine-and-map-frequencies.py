@@ -51,7 +51,7 @@ if not os.path.isdir(dirname):
 
 filenames = os.listdir(dirname)
 print("Filenames: ")
-print(filenames)
+print(len(filenames))
 print()
 
 # Instantiate the mapper.
@@ -60,11 +60,15 @@ mapper = Mapper(filename=coordfilename)
 mapper.load()
 print("Loaded.")
 
-# results dictionary
+# results dictionaries
 all_frequencies = {}
+frequencies_by_year = {}
 
+old_count = 0
 for filename in filenames:
     i = 0
+    _prefix, date, _suffix = filename.split("_")
+    year, month, day = date.split("-")
     with open(os.path.join(dirname, filename)) as file:
         reader = csv.reader(file, delimiter=",")
         _header = next(reader, None)
@@ -84,7 +88,28 @@ for filename in filenames:
                 ]
             else:
                 all_frequencies[key][0] += int(frequency)
-    print("{:-5d} {:-3d}".format(len(all_frequencies.keys()), i), flush=True)
+
+            # by year
+            if year not in frequencies_by_year:
+                frequencies_by_year[year] = {}
+
+            if key not in frequencies_by_year[year]:
+                frequencies_by_year[year][key] = [
+                    int(frequency),
+                    coordinates['latitude'], coordinates['longitude'], name
+                ]
+            else:
+                frequencies_by_year[year][key][0] += int(frequency)
+
+    new_count = len(all_frequencies.keys())
+    diff = new_count - old_count
+    print("{} {:>5} {:-3d}".format(filename, "+" + str(diff), i), flush=True)
+    old_count = new_count
+
+print("Toponym counts:")
+print("all  {:-5d}".format(len(all_frequencies.keys())), flush=True)
+for year in frequencies_by_year.keys():
+    print("{} {:-5d}".format(year, len(frequencies_by_year[year].keys())), flush=True)
 
 # Write results to a CSV
 # This file can be loaded in QGIS
@@ -98,3 +123,16 @@ with open(filename, "w") as output:
         row = [key] + all_frequencies[key]
         csvwriter.writerow(row)
     print("\n")
+
+# write per year frequencies
+for year in frequencies_by_year.keys():
+  filename = "the-whole-dispatch-coord-frequency-by-year-{}.csv".format(year)
+  with open(filename, "w") as output:
+      print(filename + "...")
+      csvwriter = csv.writer(output, delimiter=",",
+                             quotechar='"', quoting=csv.QUOTE_MINIMAL)
+      csvwriter.writerow(["key", "frequency", "latitude", "longitude", "name"])
+      for key in frequencies_by_year[year].keys():
+          row = [key] + frequencies_by_year[year][key]
+          csvwriter.writerow(row)
+      print("\n")
